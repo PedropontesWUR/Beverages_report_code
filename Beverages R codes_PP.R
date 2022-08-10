@@ -25,9 +25,10 @@ ESG_scores_O_B <- read.csv("Data ESG copy/ESG scores- Overall .csv", sep=";", de
 ESG_scores_E_B <- read.csv("Data ESG copy/ESG scores-Environmental.csv", sep=";", dec=",")
 ESG_scores_S_B <- read.csv("Data ESG copy/ESG scores-Social.csv", sep=";", dec=",")
 Data_Orbis_BV <- read.csv("Data orbis BV/Data Beverages.csv", sep=";" , dec=",", na.strings = "n.a.")
-#not used below
-Data_Orbis$Profit.margin.....2012<-sub("n.s.", Data_Orbis$Profit.margin.....2012, NA)
 str(Data_Orbis_BV)
+#not used below
+#Data_Orbis$Profit.margin.....2012<-sub("n.s.", Data_Orbis$Profit.margin.....2012, NA)
+
 #viewing data 
 
 View(ESG_scores_G_B)
@@ -188,6 +189,15 @@ colnames(MELT_L)[3]<-"L"
 colnames(MELT_L)[2]<-"year"
 View(MELT_L)
 
+#Financial expenses 
+MELT_FE <- Data_Orbis_BV [,-c(2:121)]
+MELT_FE <-melt(MELT_FE [,1:10], id.vars = c("ISIN.code"))
+MELT_FE $variable <- as.numeric(substr(MELT_FE $variable,4,7)) 
+
+colnames(MELT_FE)[3]<-"FE"
+colnames(MELT_FE)[2]<-"year"
+View(MELT_FE)
+
 
 #Mergin---------------------------------------------------------------
 #step1
@@ -196,11 +206,13 @@ Merge2 <- merge(MELT_S_ESG,MELT_G_ESG, all = TRUE)
 Merge3 <- merge(MELT_EBITDA,MELT_EBITDA_M, all = TRUE)
 Merge4 <- merge(MELT_S,MELT_PM, all = TRUE)
 Merge5 <- merge(MELT_CR,MELT_CGS, all = TRUE)
-Merge6 <- merge(MELT_COE,MELT_RM, all = TRUE)
-Merge7 <- merge(MELT_SR,MELT_RD, all = TRUE)
-Merge8 <- merge(Merge7,MELT_TA, all = TRUE)
-Merge9 <- merge(Merge8,MELT_L, all = TRUE) 
+Merge6 <- merge(MELT_RD,MELT_RM, all = TRUE)
+Merge7 <- merge(MELT_SR,MELT_TA, all = TRUE)
+Merge8 <- merge(Merge7,MELT_L, all = TRUE)
+Merge9 <- merge(Merge8,MELT_FE, all = TRUE)
 
+
+MELT_RM
 #Step 2
 
 Merge12 <- merge(Merge1,Merge2, all = TRUE)
@@ -209,6 +221,7 @@ Merge56 <- merge(Merge5,Merge6, all = TRUE)
 Merge567 <- merge(Merge56,Merge7, all = TRUE)
 Merge5678 <- merge(Merge567,Merge8, all = TRUE)
 Merge56789 <- merge(Merge5678,Merge9, all = TRUE)
+
 
 #Step 3
 
@@ -220,9 +233,15 @@ MergeFINAL <- merge(Merge12,Merge3456789)
 view(MergeFINAL)
 
 #Complete data --- Only cells with values in it - only companies with all values available. 
-final_complete_all <-MergeFINAL[complete.cases(MergeFINAL[,c("PM","ESG_G","CGS","ESG_S","ESG_E","COE","ESG_O","SR","CR","RD","TA","ISIN.code","EBITDA","EBITDA_M","L","year","RM")]),c("PM","ESG_G","CGS","ESG_S","ESG_E","COE","ESG_O","SR","CR","RD","TA","ISIN.code","EBITDA","EBITDA_M","L","year","RM")]
+final_complete_all <-MergeFINAL[complete.cases(MergeFINAL[,c("S","FE","PM","ESG_G","CGS","ESG_S","ESG_E","ESG_O","SR","CR","RD","TA","ISIN.code","EBITDA","EBITDA_M","L","year","RM")]),c("S","FE","PM","ESG_G","CGS","ESG_S","ESG_E","ESG_O","SR","CR","RD","TA","ISIN.code","EBITDA","EBITDA_M","L","year","RM")]
 #final_complete_all$COE<-as.numeric (final_complete_all$COE)
-#final_complete_all$COE<-as.numeric (final_complete_all$CGS)
+final_complete_all$CGS<-as.numeric (final_complete_all$CGS)
+final_complete_all$RD<-as.numeric (final_complete_all$RD)
+final_complete_all$TA<-as.numeric (final_complete_all$TA)
+final_complete_all$EBITDA<-as.numeric (final_complete_all$EBITDA)
+final_complete_all$RM<-as.numeric (final_complete_all$RM)
+final_complete_all$S<-as.numeric (final_complete_all$S)
+
 view(final_complete_all)
 summary(final_complete_all)
 str(final_complete_all)
@@ -231,71 +250,70 @@ str(final_complete_all)
 #data should be ready for the model- for some reason it is not working - ask Tobias
 #Model ---------------------------------------------------------
 
-#Model Profit Margin mean - using feols. 
+#Model EBITDA Margin mean - using feols. 
 
-MODEL_G_PM <- feols(PM ~ ESG_G + COE + CGS + CR + RD + SR + L + RM + TA + I(COE*COE)+ I(CGS*CGS) + RD:COE + RD:CGS + CGS:COE + RM:COE + RM:CGS + RM:RD |year+ISIN.code, cluster = final_complete_all[,c("year", "ISIN.code")], data = final_complete_all)
-summary (MODEL_G_PM)
-MODEL_S_PM <- feols(PM ~ ESG_S + COE + CGS + CR + RD + SR + L + RM + TA + I(COE*COE)+ I(CGS*CGS) + RD:COE + RD:CGS + CGS:COE + RM:COE + RM:CGS + RM:RD |year+ISIN.code, cluster = final_complete_all[,c("year", "ISIN.code")], data = final_complete_all)
-summary (MODEL_S_PM)
-MODEL_E_PM <- feols(PM ~ ESG_E + COE + CGS + CR + RD + SR + L + RM + TA + I(COE*COE)+ I(CGS*CGS) + RD:COE + RD:CGS + CGS:COE + RM:COE + RM:CGS + RM:RD |year+ISIN.code, cluster = final_complete_all[,c("year", "ISIN.code")], data = final_complete_all)
-summary (MODEL_E_PM)
-MODEL_O_PM <- feols(PM ~ ESG_O + COE + CGS + CR + RD + SR + L + RM + TA + I(COE*COE)+ I(CGS*CGS) + RD:COE + RD:CGS + CGS:COE + RM:COE + RM:CGS + RM:RD |year+ISIN.code, cluster = final_complete_all[,c("year", "ISIN.code")], data = final_complete_all)
-summary (MODEL_O_PM)
+MODEL_G_EBITDA_M <- feols(EBITDA_M ~ ESG_G + CGS + CR + RD + SR + L + RM + TA + FE + I(CGS*CGS) + I(RD*CGS) + I(RM*CGS) + I(FE*CGS) + I(RM*RM) + I(RM*RD) + I(RM*FE) + I(RD*RD) + I(FE*RD) + I(FE*FE) |year+ISIN.code, cluster = c("year", "ISIN.code"), data = final_complete_all)
+summary (MODEL_G_EBITDA_M)
+MODEL_S_EBITDA_M <- feols(EBITDA_M ~ ESG_S + CGS + CR + RD + SR + L + RM + TA + FE + I(CGS*CGS) + I(RD*CGS) + I(RM*CGS) + I(FE*CGS) + I(RM*RM) + I(RM*RD) + I(RM*FE) + I(RD*RD) + I(FE*RD) + I(FE*FE) |year+ISIN.code, cluster = c("year", "ISIN.code"), data = final_complete_all)
+summary (MODEL_S_EBITDA_M)
+MODEL_E_EBITDA_M <- feols(EBITDA_M ~ ESG_E + CGS + CR + RD + SR + L + RM + TA + FE + I(CGS*CGS) + I(RD*CGS) + I(RM*CGS) + I(FE*CGS) + I(RM*RM) + I(RM*RD) + I(RM*FE) + I(RD*RD) + I(FE*RD) + I(FE*FE) |year+ISIN.code, cluster = c("year", "ISIN.code"), data = final_complete_all)
+summary (MODEL_E_EBITDA_M)
+MODEL_O_EBITDA_M <- feols(EBITDA_M ~ ESG_O + CGS + CR + RD + SR + L + RM + TA + FE + I(CGS*CGS) + I(RD*CGS) + I(RM*CGS) + I(FE*CGS) + I(RM*RM) + I(RM*RD) + I(RM*FE) + I(RD*RD) + I(FE*RD) + I(FE*FE) |year+ISIN.code, cluster = c("year", "ISIN.code"), data = final_complete_all)
+summary (MODEL_O_EBITDA_M)
 
 #marginal effect 
-marginaleffects(MODEL_G_PM, newdata=datagrid(), vcov=T)
-summary(marginaleffects(MODEL_G_PM))
+marginaleffects(MODEL_G_EBITDA_M, newdata=datagrid(), vcov=T)
+summary(marginaleffects(MODEL_G_EBITDA_M))
 
-marginaleffects(MODEL_S_PM, newdata=datagrid(), vcov=T)
-summary(marginaleffects(MODEL_S_PM))
+marginaleffects(MODEL_S_EBITDA_M, newdata=datagrid(), vcov=T)
+summary(marginaleffects(MODEL_S_EBITDA_M))
 
-marginaleffects(MODEL_E_PM, newdata=datagrid(), vcov=T)
-summary(marginaleffects(MODEL_E_PM))
+marginaleffects(MODEL_E_EBITDA_M, newdata=datagrid(), vcov=T)
+summary(marginaleffects(MODEL_E_EBITDA_M))
 
-marginaleffects(MODEL_O_PM, newdata=datagrid(), vcov=T)
-summary(marginaleffects(MODEL_O_PM))
+marginaleffects(MODEL_O_EBITDA_M, newdata=datagrid(), vcov=T)
+summary(marginaleffects(MODEL_O_EBITDA_M))
 
 
 #semivarience --------------------------------------
 #residuals **** did not work ******
-final_complete_all$residual_G <- resid(MODEL_G_PM)
+final_complete_all$residual_G <- resid(MODEL_G_EBITDA_M)
 View(final_complete_all)
 
-final_complete_all$residual_E <- resid(MODEL_E_PM)
+final_complete_all$residual_E <- resid(MODEL_E_EBITDA_M)
 View(final_complete_all)
 
-final_complete_all$residual_S <- resid(MODEL_S_PM)
+final_complete_all$residual_S <- resid(MODEL_S_EBITDA_M)
 View(final_complete_all)
 
-final_complete_all$residual_O <- resid(MODEL_O_PM)
+final_complete_all$residual_O <- resid(MODEL_O_EBITDA_M)
 View(final_complete_all)
 
 
 #squared residuals
 
-final_complete_all$squaredresidual_G <- resid(MODEL_G_PM)*resid(MODEL_G_PM)
+final_complete_all$squaredresidual_G <- resid(MODEL_G_EBITDA_M)*resid(MODEL_G_EBITDA_M)
 View(final_complete_all)
 
-final_complete_all$squaredresidual_E <- resid(MODEL_E_PM)*resid(MODEL_E_PM)
+final_complete_all$squaredresidual_E <- resid(MODEL_E_EBITDA_M)*resid(MODEL_E_EBITDA_M)
 View(final_complete_all)
 
-final_complete_all$squaredresidual_S <- resid(MODEL_S_PM)*resid(MODEL_S_PM)
+final_complete_all$squaredresidual_S <- resid(MODEL_S_EBITDA_M)*resid(MODEL_S_EBITDA_M)
 View(final_complete_all)
 
-final_complete_all$squaredresidual_O <- resid(MODEL_O_PM)*resid(MODEL_O_PM)
+final_complete_all$squaredresidual_O <- resid(MODEL_O_EBITDA_M)*resid(MODEL_O_EBITDA_M)
 View(final_complete_all)
 
 
-#model for Semi-varience.#### it worked on tuesday. gives me an error today. 
+#model for Semi-varience of EBITDA margins
 
-MODEL_G_SV <- feols(squaredresidual_G ~ ESG_G + COE + CGS + CR + RD + SR + L + RM + TA + I(COE*COE)+ I(CGS*CGS) + RD:COE + RD:CGS + CGS:COE + RM:COE + RM:CGS + RM:RD |ISIN.code+year, cluster = c("year", "ISIN.code"), data = final_complete_all[which(final_complete_all$residual_G<0),])
+MODEL_G_SV <- feols(squaredresidual_G ~ ESG_G + CGS + CR + RD + SR + L + RM + TA + FE + I(CGS*CGS) + I(RD*CGS) + I(RM*CGS) + I(FE*CGS) + I(RM*RM) + I(RM*RD) + I(RM*FE) + I(RD*RD) + I(FE*RD) + I(FE*FE) |year+ISIN.code, cluster = c("year", "ISIN.code"), data = final_complete_all[which(final_complete_all$residual_G<0),])
 summary (MODEL_G_SV)
-# i mistakenly deleted the code you gave me to fix the SV. Can i have it again? 
-MODEL_S_SV <- feols(squaredresidual_S ~ ESG_S + COE + CGS + CR + RD + SR + L + RM + TA + I(COE*COE)+ I(CGS*CGS) + RD:COE + RD:CGS + CGS:COE + RM:COE + RM:CGS + RM:RD |ISIN.code+year, cluster = c("year", "ISIN.code"), data = final_complete_all[which(final_complete_all$residual_S<0),])
+MODEL_S_SV <- feols(squaredresidual_S ~ ESG_S + CGS + CR + RD + SR + L + RM + TA + FE + I(CGS*CGS) + I(RD*CGS) + I(RM*CGS) + I(FE*CGS) + I(RM*RM) + I(RM*RD) + I(RM*FE) + I(RD*RD) + I(FE*RD) + I(FE*FE) |year+ISIN.code, cluster = c("year", "ISIN.code"), data = final_complete_all[which(final_complete_all$residual_G<0),])
 summary (MODEL_S_SV)
-MODEL_E_SV <- feols(squaredresidual_E ~ ESG_E + COE + CGS + CR + RD + SR + L + RM + TA + I(COE*COE)+ I(CGS*CGS) + RD:COE + RD:CGS + CGS:COE + RM:COE + RM:CGS + RM:RD |ISIN.code+year, cluster = c("year", "ISIN.code"), data = final_complete_all[which(final_complete_all$residual_E<0),])
+MODEL_E_SV <- feols(squaredresidual_E ~ ESG_E + CGS + CR + RD + SR + L + RM + TA + FE + I(CGS*CGS) + I(RD*CGS) + I(RM*CGS) + I(FE*CGS) + I(RM*RM) + I(RM*RD) + I(RM*FE) + I(RD*RD) + I(FE*RD) + I(FE*FE) |year+ISIN.code, cluster = c("year", "ISIN.code"), data = final_complete_all[which(final_complete_all$residual_G<0),])
 summary (MODEL_E_SV)
-MODEL_O_SV <- feols(squaredresidual_O ~ ESG_O + COE + CGS + CR + RD + SR + L + RM + TA + I(COE*COE)+ I(CGS*CGS) + RD:COE + RD:CGS + CGS:COE + RM:COE + RM:CGS + RM:RD |ISIN.code+year, cluster = c("year", "ISIN.code"), data = final_complete_all[which(final_complete_all$residual_O<0),])
+MODEL_O_SV <- feols(squaredresidual_O ~ ESG_O + CGS + CR + RD + SR + L + RM + TA + FE + I(CGS*CGS) + I(RD*CGS) + I(RM*CGS) + I(FE*CGS) + I(RM*RM) + I(RM*RD) + I(RM*FE) + I(RD*RD) + I(FE*RD) + I(FE*FE) |year+ISIN.code, cluster = c("year", "ISIN.code"), data = final_complete_all[which(final_complete_all$residual_G<0),])
 summary (MODEL_O_SV)
 
 #Marginal effects SV 
@@ -312,82 +330,82 @@ marginaleffects(MODEL_O_SV, newdata=datagrid(), vcov=T)
 summary(marginaleffects(MODEL_O_SV))
 
 
-#Robustness check-EBITDA
+#Robustness check-Sales 
 
-MODEL_G_EBITDA <- feols(EBITDA ~ ESG_G + COE + CGS + CR + RD + SR + L + RM + TA + I(COE*COE)+ I(CGS*CGS) + RD:COE + RD:CGS + CGS:COE + RM:COE + RM:CGS + RM:RD |year+ISIN.code, cluster = final_complete_all[,c("year", "ISIN.code")], data = final_complete_all)
-summary (MODEL_G_EBITDA)
-MODEL_S_EBITDA <- feols(EBITDA ~ ESG_S + COE + CGS + CR + RD + SR + L + RM + TA + I(COE*COE)+ I(CGS*CGS) + RD:COE + RD:CGS + CGS:COE + RM:COE + RM:CGS + RM:RD |year+ISIN.code, cluster = final_complete_all[,c("year", "ISIN.code")], data = final_complete_all)
-summary (MODEL_S_EBITDA)
-MODEL_E_EBITDA <- feols(EBITDA ~ ESG_E + COE + CGS + CR + RD + SR + L + RM + TA + I(COE*COE)+ I(CGS*CGS) + RD:COE + RD:CGS + CGS:COE + RM:COE + RM:CGS + RM:RD |year+ISIN.code, cluster = final_complete_all[,c("year", "ISIN.code")], data = final_complete_all)
-summary (MODEL_E_EBITDA)
-MODEL_O_EBITDA <- feols(EBITDA ~ ESG_O + COE + CGS + CR + RD + SR + L + RM + TA + I(COE*COE)+ I(CGS*CGS) + RD:COE + RD:CGS + CGS:COE + RM:COE + RM:CGS + RM:RD |year+ISIN.code, cluster = final_complete_all[,c("year", "ISIN.code")], data = final_complete_all)
-summary (MODEL_G_EBITDA)
+MODEL_G_S <- feols(S ~ ESG_G + CGS + CR + RD + SR + L + RM + TA + FE + I(CGS*CGS) + I(RD*CGS) + I(RM*CGS) + I(FE*CGS) + I(RM*RM) + I(RM*RD) + I(RM*FE) + I(RD*RD) + I(FE*RD) + I(FE*FE) |year+ISIN.code, cluster = c("year", "ISIN.code"), data = final_complete_all)
+summary (MODEL_G_S)
+MODEL_S_S <- feols(S ~ ESG_S + CGS + CR + RD + SR + L + RM + TA + FE + I(CGS*CGS) + I(RD*CGS) + I(RM*CGS) + I(FE*CGS) + I(RM*RM) + I(RM*RD) + I(RM*FE) + I(RD*RD) + I(FE*RD) + I(FE*FE) |year+ISIN.code, cluster = c("year", "ISIN.code"), data = final_complete_all)
+summary (MODEL_S_S)
+MODEL_E_S <- feols(S ~ ESG_E + CGS + CR + RD + SR + L + RM + TA + FE + I(CGS*CGS) + I(RD*CGS) + I(RM*CGS) + I(FE*CGS) + I(RM*RM) + I(RM*RD) + I(RM*FE) + I(RD*RD) + I(FE*RD) + I(FE*FE) |year+ISIN.code, cluster = c("year", "ISIN.code"), data = final_complete_all)
+summary (MODEL_E_S)
+MODEL_O_S <- feols(S ~ ESG_O + CGS + CR + RD + SR + L + RM + TA + FE + I(CGS*CGS) + I(RD*CGS) + I(RM*CGS) + I(FE*CGS) + I(RM*RM) + I(RM*RD) + I(RM*FE) + I(RD*RD) + I(FE*RD) + I(FE*FE) |year+ISIN.code, cluster = c("year", "ISIN.code"), data = final_complete_all)
+summary (MODEL_O_S)
 
 
 
 #semivarienece for ROE rubustness check 
-#residuas 
-final_complete_all$residual_G_R <- resid(MODEL_G_EBITDA)
+#residuals 
+final_complete_all$residual_G_R <- resid(MODEL_G_S)
 View(final_complete_all)
 
-final_complete_all$residual_S_R <- resid(MODEL_S_EBITDA)
+final_complete_all$residual_S_R <- resid(MODEL_S_S)
 View(final_complete_all)
 
-final_complete_all$residual_E_R <- resid(MODEL_E_EBITDA)
+final_complete_all$residual_E_R <- resid(MODEL_E_S)
 View(final_complete_all)
 
-final_complete_all$residual_O_R <- resid(MODEL_O_EBITDA)
+final_complete_all$residual_O_R <- resid(MODEL_O_S)
 View(final_complete_all)
 # squared residuals ROE
 
-final_complete_all$squaredresidual_G_R <- resid(MODEL_G_EBITDA)*resid(MODEL_G_EBITDA)
+final_complete_all$squaredresidual_G_R <- resid(MODEL_G_S)*resid(MODEL_G_S)
 View(final_complete_all)
 
-final_complete_all$squaredresidual_E_R <- resid(MODEL_E_EBITDA)*resid(MODEL_E_EBITDA)
+final_complete_all$squaredresidual_E_R <- resid(MODEL_E_S)*resid(MODEL_E_S)
 View(final_complete_all)
 
-final_complete_all$squaredresidual_S_R <- resid(MODEL_S_EBITDA)*resid(MODEL_S_EBITDA)
+final_complete_all$squaredresidual_S_R <- resid(MODEL_S_S)*resid(MODEL_S_S)
 View(final_complete_all)
 
-final_complete_all$squaredresidual_O_R <- resid(MODEL_O_EBITDA)*resid(MODEL_O_EBITDA)
+final_complete_all$squaredresidual_O_R <- resid(MODEL_O_S)*resid(MODEL_O_S)
 View(final_complete_all)
 
-#SV ROE 
-MODEL_G_SV_R <- feols(squaredresidual_G_R ~ ESG_G + COE + CGS + CR + RD + SR + L + RM + TA + I(COE*COE)+ I(CGS*CGS) + RD:COE + RD:CGS + CGS:COE + RM:COE + RM:CGS + RM:RD |ISIN.code+year, cluster = c("year", "ISIN.code"), data = final_complete_all[which(final_complete_all$residual_G<0),])
-summary (MODEL_G_SV_R)
-MODEL_S_SV_R <- feols(squaredresidual_S_R ~ ESG_S + COE + CGS + CR + RD + SR + L + RM + TA + I(COE*COE)+ I(CGS*CGS) + RD:COE + RD:CGS + CGS:COE + RM:COE + RM:CGS + RM:RD |ISIN.code+year, cluster = c("year", "ISIN.code"), data = final_complete_all[which(final_complete_all$residual_S<0),])
-summary (MODEL_S_SV_R)
-MODEL_E_SV_R <- feols(squaredresidual_E_R ~ ESG_E + COE + CGS + CR + RD + SR + L + RM + TA + I(COE*COE)+ I(CGS*CGS) + RD:COE + RD:CGS + CGS:COE + RM:COE + RM:CGS + RM:RD |ISIN.code+year, cluster = c("year", "ISIN.code"), data = final_complete_all[which(final_complete_all$residual_E<0),])
-summary (MODEL_E_SV_R)
-MODEL_O_SV_R <- feols(squaredresidual_O_R ~ ESG_O + COE + CGS + CR + RD + SR + L + RM + TA + I(COE*COE)+ I(CGS*CGS) + RD:COE + RD:CGS + CGS:COE + RM:COE + RM:CGS + RM:RD |ISIN.code+year, cluster = c("year", "ISIN.code"), data = final_complete_all[which(final_complete_all$residual_O<0),])
-summary (MODEL_O_SV_R)
+#SV of Sales 
+MODEL_G_SVR <- feols(squaredresidual_G_R ~ ESG_G + CGS + CR + RD + SR + L + RM + TA + FE + I(CGS*CGS) + I(RD*CGS) + I(RM*CGS) + I(FE*CGS) + I(RM*RM) + I(RM*RD) + I(RM*FE) + I(RD*RD) + I(FE*RD) + I(FE*FE) |year+ISIN.code, cluster = c("year", "ISIN.code"), data = final_complete_all)
+summary (MODEL_G_SVR)
+MODEL_S_SVR <- feols(squaredresidual_S_R ~ ESG_G + CGS + CR + RD + SR + L + RM + TA + FE + I(CGS*CGS) + I(RD*CGS) + I(RM*CGS) + I(FE*CGS) + I(RM*RM) + I(RM*RD) + I(RM*FE) + I(RD*RD) + I(FE*RD) + I(FE*FE) |year+ISIN.code, cluster = c("year", "ISIN.code"), data = final_complete_all)
+summary (MODEL_S_SVR)
+MODEL_E_SVR <- feols(squaredresidual_E_R ~ ESG_G + CGS + CR + RD + SR + L + RM + TA + FE + I(CGS*CGS) + I(RD*CGS) + I(RM*CGS) + I(FE*CGS) + I(RM*RM) + I(RM*RD) + I(RM*FE) + I(RD*RD) + I(FE*RD) + I(FE*FE) |year+ISIN.code, cluster = c("year", "ISIN.code"), data = final_complete_all)
+summary (MODEL_E_SVR)
+MODEL_O_SVR <- feols(squaredresidual_O_R ~ ESG_G + CGS + CR + RD + SR + L + RM + TA + FE + I(CGS*CGS) + I(RD*CGS) + I(RM*CGS) + I(FE*CGS) + I(RM*RM) + I(RM*RD) + I(RM*FE) + I(RD*RD) + I(FE*RD) + I(FE*FE) |year+ISIN.code, cluster = c("year", "ISIN.code"), data = final_complete_all)
+summary (MODEL_O_SVR)
 
-#Marginal effects Robustness check 
-marginaleffects(MODEL_G_EBITDA, newdata=datagrid(), vcov=T)
-summary(marginaleffects(MODEL_G_EBITDA))
+#Marginal effects Sales 
+marginaleffects(MODEL_G_S, newdata=datagrid(), vcov=T)
+summary(marginaleffects(MODEL_G_S))
 
-marginaleffects(MODEL_S_EBITDA, newdata=datagrid(), vcov=T)
-summary(marginaleffects(MODEL_s_EBITDA))
+marginaleffects(MODEL_S_S, newdata=datagrid(), vcov=T)
+summary(marginaleffects(MODEL_S_S))
 
-marginaleffects(MODEL_E_EBITDA, newdata=datagrid(), vcov=T)
-summary(marginaleffects(MODEL_E_EBITDA))
+marginaleffects(MODEL_E_S, newdata=datagrid(), vcov=T)
+summary(marginaleffects(MODEL_E_S))
 
-marginaleffects(MODEL_O_EBITDA, newdata=datagrid(), vcov=T)
-summary(marginaleffects(MODEL_O_EBITDA))
+marginaleffects(MODEL_O_S, newdata=datagrid(), vcov=T)
+summary(marginaleffects(MODEL_O_S))
 
-#Marginal effects ROE - SV
+#Marginal effects Semivarience - Sales 
 
-marginaleffects(MODEL_G_SV_R, newdata=datagrid(), vcov=T)
-summary(marginaleffects(MODEL_G_SV_R))
+marginaleffects(MODEL_G_SVR, newdata=datagrid(), vcov=T)
+summary(marginaleffects(MODEL_G_SVR))
 
-marginaleffects(MODEL_S_SV_R, newdata=datagrid(), vcov=T)
-summary(marginaleffects(MODEL_S_SV_R))
+marginaleffects(MODEL_S_SVR, newdata=datagrid(), vcov=T)
+summary(marginaleffects(MODEL_S_SVR))
 
-marginaleffects(MODEL_E_SV_R, newdata=datagrid(), vcov=T)
-summary(marginaleffects(MODEL_E_SV_R))
+marginaleffects(MODEL_E_SVR, newdata=datagrid(), vcov=T)
+summary(marginaleffects(MODEL_E_SVR))
 
 marginaleffects(MODEL_O_SV_R, newdata=datagrid(), vcov=T)
-summary(marginaleffects(MODEL_O_SV_R))
+summary(marginaleffects(MODEL_O_SVR))
 
 #summary statistics
 #ESG
@@ -402,11 +420,10 @@ summary(final_complete_all$EBITDA_M)
 summary(final_complete_all$L)
 summary(final_complete_all$SR)
 summary(final_complete_all$CR)
-
-summary(final_complete_all$COE)
+summary(final_complete_all$FE)
 summary(final_complete_all$RD)
 summary(final_complete_all$RM)
-
+summary(final_complete_all$S)
 #SD 
 sd(final_complete_all$ESG_G)
 sd(final_complete_all$ESG_S)
@@ -419,42 +436,8 @@ sd(final_complete_all$SR)
 sd(final_complete_all$CR)
 sd(final_complete_all$L)
 sd(final_complete_all$RM)
-
-sd(final_complete_all$COE)
+sd(final_complete_all$S)
+sd(final_complete_all$FE)
 sd(final_complete_all$RD)
 
-#**************************************************************************
-#word cloud 
-install.packages("wordcloud")
-library(wordcloud)
-install.packages("RColorBrewer")
-library(RColorBrewer)
-install.packages("tm")
-library(tm)
 
-
-write.table(MODEL_G_PM, 'MODEL_G_PM_.csv', row.names = FALSE)
-
-#checking if model value chage if we dont take ESG scores into account. 
-MODEL_PM_W <- feols(PM ~ CGS + COE + CR + RD + SR + A + CGS:COE + I(CGS*CGS) + I(COE*COE)+ RD:COE + RD:CGS |year+ISIN.code, cluster = final_complete_all[,c("year", "ISIN.code")], data = final_complete_all)
-summary (MODEL_G_PM_W)
-MODEL_SV_W <- feols(squaredresidual_W ~ CGS + COE + CR + RD + SR + A + CGS:COE + I(CGS*CGS) + I(COE*COE)+ RD:COE + RD:CGS|ISIN.code+year, cluster = c("year", "ISIN.code"), data = final_complete_all[which(final_complete_all$residual_G<0),])
-summary (MODEL_SV_W)
-
-marginaleffects(MODEL_PM_W, newdata=datagrid(), vcov=T)
-summary(marginaleffects(MODEL_PM_W))
-
-marginaleffects(MODEL_SV_W, newdata=datagrid(), vcov=T)
-summary(marginaleffects(MODEL_SV_W))
-
-#ESG summary analisys all ESG listed companies sample
-summary(ESG_scores_G)
-summary(ESG_scores_E)
-summary(ESG_scores_S)
-summary(ESG_scores_O)
-#70 Aniaml protein/ dairy 
-
-summary(MergeFINAL$ESG_G)
-summary(MergeFINAL$ESG_S)
-summary(MergeFINAL$ESG_E)
-summary(MergeFINAL$ESG_O)
